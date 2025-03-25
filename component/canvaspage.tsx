@@ -34,6 +34,7 @@ export default function Drawing({ roomId }: { roomId: string }) {
   ];
 
   // Resize handler
+  
   useEffect(() => {
     const handleResize = () => {
       setDimensions({

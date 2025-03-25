@@ -15,9 +15,12 @@ export default function Home() {
     router.push(`/canvas/${roomId}`);
   };
 
-  return (
+  return (<>
+  
+    
+    
     <div className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-2xl mb-4">Welcome to Drawing App</h1>
+
       <button 
         className="bg-amber-200 px-6 py-3 rounded-lg hover:bg-amber-300 transition-colors"
         onClick={handleCreateRoom}
@@ -25,5 +28,6 @@ export default function Home() {
         Create New Room
       </button>
     </div>
+    </>
   );
 }

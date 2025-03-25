@@ -1,111 +1,29 @@
-type Tool = | {
-    type: "rect";
-    id: string;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    color: string;
-    bgColor: string;
-    strokeWidth: number;
-    strokeStyle: string;
-    rotation?: number;
-  }| {
-    type: "circle";
-    id: string;
-    x: number;
-    y: number;
-    endX: number;
-    endY: number;
-    width: number;
-    height: number;
-    centerX: number;
-    centerY: number;
-    radius: number;
-    color: string;
-    bgColor: string;
-    strokeWidth: number;
-    strokeStyle: string;
-    rotation?: number;
-  }| {
-    type: "pencil";
-    id: string;
-    path: { x: number; y: number }[];
-    color: string;
-    strokeWidth: number;
-    strokeStyle: string;
-  }| {
-    type: "diamond";
-    id: string;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    color: string;
-    bgColor: string;
-    strokeWidth: number;
-    strokeStyle: string;
-    rotation?: number;
-  }| {
-    type: "arrow";
-    id: string;
-    startX: number;
-    startY: number;
-    endX: number;
-    endY: number;
-    color: string;
-    strokeWidth: number;
-    strokeStyle: string;
-    rotation?: number;
-  }| {
-    type: "line";
-    id: string;
-    startX: number;
-    startY: number;
-    endX: number;
-    endY: number;
-    color: string;
-    strokeWidth: number;
-    strokeStyle: string;
-    rotation?: number;
-  }| {
-    type: "text";
-    id: string;
-    x: number;
-    y: number;
-    text: string;
-    size: number;
-    color: string;
-    bgColor: string;
-    strokeWidth: number;
-    strokeStyle: string;
-    rotation?: number;
-  }| {
-    type: "eraser";
-    id: string;
-    path: { x: number; y: number }[];
-    strokeWidth: number;
-  }| {
-    type: "select";
-    id: string;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
 
-type ToolType = Tool['type'];
-export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
-  let existingShape: Tool[] = loadShapesFromStorage(roomId);
-  let selectedTool: ToolType = "select";
-  let selectedShape: Tool | null = null;
-  let selectedShapeIndex: number = -1;
-  let isResizing = false;
-  let isRotating = false;
-  let isDragging = false;
-  let resizeHandle = "";
-  let rotationAngle = 0;
-  
+import type { Tool, ToolType } from "./../utils/types";
+import { saveShapesToStorage, loadShapesFromStorage } from "./../utils/storage";
+import { ClearCanvas } from "./../utils/renderUtils";
+import { createToolbar } from "./../utils/toolbar";
+import { createStyleToolbar } from "./../utils/styleToolbar";
+import { AppState } from "../utils/state";
+
+export default function initDraw(canvas: HTMLCanvasElement, roomId: string,) {
+  const state: AppState = {
+    existingShape: loadShapesFromStorage(roomId),
+    selectedTool: "select",
+    selectedShape: null,
+    selectedShapeIndex: -1,
+    isResizing: false,
+    isRotating: false,
+    isDragging: false,
+    resizeHandle: "",
+    rotationAngle: 0,
+    currentStrokeColor: "#FFFFFF",
+    currentBgColor: "transparent",
+    currentStrokeWidth: 2,
+    offsetX: 0,
+  offsetY: 0,
+  scale: 1
+  };
   // Default style settings
   let currentStrokeColor = "#FFFFFF";
   let currentBgColor = "transparent";
@@ -114,7 +32,7 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   
-  ClearCanvas(existingShape, ctx, canvas);
+  ClearCanvas(state.existingShape, ctx, canvas,state);
   let Clicked = false;
   let StartX = 0;
   let StartY = 0;
@@ -122,7 +40,7 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
   let textInput: HTMLTextAreaElement | null = null;
   
   function selectTool(toolType: ToolType) {
-    selectedTool = toolType;
+    state.selectedTool = toolType;
     
     if (toolType === "pencil" || toolType === "eraser") {
       canvas.style.cursor = "crosshair";
@@ -142,8 +60,8 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
     
     // Clear selection when switching tools
     if (toolType !== "select") {
-      selectedShape = null;
-      selectedShapeIndex = -1;
+      state.selectedShape = null;
+      state.selectedShapeIndex = -1;
     }
   }
   
@@ -152,13 +70,13 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
     currentStrokeColor = color;
     
     // If a shape is selected, update its color
-    if (selectedShape && selectedShapeIndex >= 0) {
-      if ('color' in selectedShape) {
-        selectedShape.color = color;
-        existingShape[selectedShapeIndex] = selectedShape;
-        saveShapesToStorage(existingShape, roomId);
-        ClearCanvas(existingShape, ctx, canvas);
-        drawSelectionHandles(selectedShape);
+    if (state.selectedShape && state.selectedShapeIndex >= 0) {
+      if ('color' in state.selectedShape) {
+        state.selectedShape.color = color;
+        state.existingShape[state.selectedShapeIndex] = state.selectedShape;
+        saveShapesToStorage(state.existingShape, roomId);
+        ClearCanvas(state.existingShape, ctx, canvas,state);
+        drawSelectionHandles(state.selectedShape);
       }
     }
   }
@@ -168,13 +86,13 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
     currentBgColor = color;
     
     // If a shape is selected, update its background color
-    if (selectedShape && selectedShapeIndex >= 0) {
-      if ('bgColor' in selectedShape) {
-        selectedShape.bgColor = color;
-        existingShape[selectedShapeIndex] = selectedShape;
-        saveShapesToStorage(existingShape, roomId);
-        ClearCanvas(existingShape, ctx, canvas);
-        drawSelectionHandles(selectedShape);
+    if (state.selectedShape && state.selectedShapeIndex >= 0) {
+      if ('bgColor' in state.selectedShape) {
+        state.selectedShape.bgColor = color;
+        state.existingShape[state.selectedShapeIndex] = state.selectedShape;
+        saveShapesToStorage(state.existingShape, roomId);
+        ClearCanvas(state.existingShape, ctx, canvas,state);
+        drawSelectionHandles(state.selectedShape);
       }
     }
   }
@@ -184,13 +102,13 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
     currentStrokeWidth = width;
     
     // If a shape is selected, update its stroke width
-    if (selectedShape && selectedShapeIndex >= 0) {
-      if ('strokeWidth' in selectedShape) {
-        selectedShape.strokeWidth = width;
-        existingShape[selectedShapeIndex] = selectedShape;
-        saveShapesToStorage(existingShape, roomId);
-        ClearCanvas(existingShape, ctx, canvas);
-        drawSelectionHandles(selectedShape);
+    if (state.selectedShape && state.selectedShapeIndex >= 0) {
+      if ('strokeWidth' in state.selectedShape) {
+        state.selectedShape.strokeWidth = width;
+        state.existingShape[state.selectedShapeIndex] = state.selectedShape;
+        saveShapesToStorage(state.existingShape, roomId);
+        ClearCanvas(state.existingShape, ctx, canvas,state);
+        drawSelectionHandles(state.selectedShape);
       }
     }
   }
@@ -265,8 +183,8 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
   // Function to find which shape was clicked
   function findSelectedShape(x: number, y: number): { shape: Tool | null, index: number } {
     // Iterate backwards to select the topmost shape first
-    for (let i = existingShape.length - 1; i >= 0; i--) {
-      const shape = existingShape[i];
+    for (let i = state.existingShape.length - 1; i >= 0; i--) {
+      const shape = state.existingShape[i];
       if (shape.type !== "eraser" && isPointInShape(x, y, shape)) {
         return { shape, index: i };
       }
@@ -286,7 +204,7 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
       ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
       
       // Draw resize handles at corners
-      const handleSize = 8;
+      const handleSize = 12;
       ctx.fillStyle = "white";
       ctx.strokeStyle = "blue";
       ctx.lineWidth = 1;
@@ -332,7 +250,7 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
       ctx.stroke();
       
       // Draw resize handles at cardinal points
-      const handleSize = 8;
+      const handleSize = 12;
       ctx.fillStyle = "white";
       ctx.strokeStyle = "blue";
       ctx.lineWidth = 1;
@@ -370,7 +288,7 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
     }
     else if (shape.type === "line" || shape.type === "arrow") {
       // Draw selection indicators at endpoints
-      const handleSize = 8;
+      const handleSize = 12;
       ctx.fillStyle = "white";
       ctx.strokeStyle = "blue";
       ctx.lineWidth = 1;
@@ -419,15 +337,15 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
       
       // Draw selection outline
       ctx.setLineDash([5, 5]);
-      ctx.strokeStyle = "blue";
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 3;
       ctx.strokeRect(shape.x, shape.y - textHeight, textWidth, textHeight);
       
       // Draw resize handle at the bottom-right
-      const handleSize = 8;
+      const handleSize = 12;
       ctx.fillStyle = "white";
       ctx.strokeStyle = "blue";
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 4;
       ctx.setLineDash([]);
       
       ctx.fillRect(shape.x + textWidth - handleSize/2, shape.y - handleSize/2, handleSize, handleSize);
@@ -439,7 +357,7 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
   
   // Check if a point is over a resize handle
   function getResizeHandle(x: number, y: number, shape: Tool): string {
-    const handleSize = 8;
+    const handleSize = 12;
     
     if (shape.type === "rect" || shape.type === "diamond" || shape.type === "select") {
       // Check top-left handle
@@ -532,78 +450,112 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
       shape.rotation = (shape.rotation || 0) + angle;
     }
   }
+ // Add zoom handler
+ // Add this in your initDraw function, after other event listeners
+canvas.addEventListener("wheel", (e) => {
+  e.preventDefault(); // Prevent default scrolling behavior
+
+  // Get mouse position relative to canvas
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+
+  // Calculate zoom factor (0.9 for zoom out, 1.1 for zoom in)
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+
+  // Convert mouse position to drawing coordinates before zoom
+  const pointX = (mouseX - state.offsetX) / state.scale;
+  const pointY = (mouseY - state.offsetY) / state.scale;
+
+  // Apply zoom by scaling the current scale value
+  state.scale *= delta;
   
+  // Clamp scale between 0.1 and 10 to prevent extreme zoom
+  state.scale = Math.min(Math.max(0.1, state.scale), 10);
+
+  // Adjust offset to keep mouse position stable during zoom
+  state.offsetX = mouseX - pointX * state.scale;
+  state.offsetY = mouseY - pointY * state.scale;
+
+  // Redraw canvas with new transformation values
+  ClearCanvas(state.existingShape, ctx, canvas, state);
+});
+
   canvas.addEventListener("pointerdown", (e) => {
     const rect = canvas.getBoundingClientRect();
-    StartX = e.clientX - rect.left;
-    StartY = e.clientY - rect.top;
+    const rawX = e.clientX - rect.left;
+    const rawY = e.clientY - rect.top;
+  
+    // Convert to drawing coordinates
+    StartX = (rawX - state.offsetX) / state.scale;
+    StartY = (rawY - state.offsetY) / state.scale;
     
-    if (selectedTool === "select") {
+    if (state.selectedTool === "select") {
       // Check if clicking on an existing shape
       const { shape, index } = findSelectedShape(StartX, StartY);
       
       if (shape) {
-        selectedShape = shape;
-        selectedShapeIndex = index;
+        state.selectedShape = shape;
+        state.selectedShapeIndex = index;
         
         // Check if clicking on a resize handle
-        if (selectedShape) {
-          resizeHandle = getResizeHandle(StartX, StartY, selectedShape);
+        if (state.selectedShape) {
+          state.resizeHandle = getResizeHandle(StartX, StartY, state.selectedShape);
           
-          if (resizeHandle === "rotate") {
-            isRotating = true;
-            isDragging = false;
-            isResizing = false;
+          if (state.resizeHandle === "rotate") {
+            state.isRotating = true;
+            state.isDragging = false;
+            state.isResizing = false;
             
             // Calculate the initial rotation angle
-            if (selectedShape.type === "rect" || selectedShape.type === "diamond") {
-              const centerX = selectedShape.x + selectedShape.width / 2;
-              const centerY = selectedShape.y + selectedShape.height / 2;
-              rotationAngle = Math.atan2(StartY - centerY, StartX - centerX);
+            if (state.selectedShape.type === "rect" || state.selectedShape.type === "diamond") {
+              const centerX = state.selectedShape.x + state.selectedShape.width / 2;
+              const centerY = state.selectedShape.y + state.selectedShape.height / 2;
+              state.rotationAngle = Math.atan2(StartY - centerY, StartX - centerX);
             }
-            else if (selectedShape.type === "circle") {
-              rotationAngle = Math.atan2(StartY - selectedShape.centerY, StartX - selectedShape.centerX);
+            else if (state.selectedShape.type === "circle") {
+              state.rotationAngle = Math.atan2(StartY - state.selectedShape.centerY, StartX - state.selectedShape.centerX);
             }
-            else if (selectedShape.type === "line" || selectedShape.type === "arrow") {
-              const midX = (selectedShape.startX + selectedShape.endX) / 2;
-              const midY = (selectedShape.startY + selectedShape.endY) / 2;
-              rotationAngle = Math.atan2(StartY - midY, StartX - midX);
+            else if (state.selectedShape.type === "line" || state.selectedShape.type === "arrow") {
+              const midX = (state.selectedShape.startX + state.selectedShape.endX) / 2;
+              const midY = (state.selectedShape.startY + state.selectedShape.endY) / 2;
+              state.rotationAngle = Math.atan2(StartY - midY, StartX - midX);
             }
           }
-          else if (resizeHandle !== "") {
-            isResizing = true;
-            isDragging = false;
-            isRotating = false;
+          else if (state.resizeHandle !== "") {
+            state.isResizing = true;
+            state.isDragging = false;
+            state.isRotating = false;
           }
           else {
-            isDragging = true;
-            isResizing = false;
-            isRotating = false;
+            state.isDragging = true;
+            state.isResizing = false;
+            state.isRotating = false;
           }
         }
         
-        ClearCanvas(existingShape, ctx, canvas);
-        drawSelectionHandles(selectedShape);
+        ClearCanvas(state.existingShape, ctx, canvas,state);
+        drawSelectionHandles(state.selectedShape);
       }
       else {
         // Start a selection rect if not clicking on a shape
         Clicked = true;
         
         // Clear current selection
-        selectedShape = null;
-        selectedShapeIndex = -1;
+        state.selectedShape = null;
+        state.selectedShapeIndex = -1;
       }
     }
     else {
       Clicked = true;
       
-      if (selectedTool === "pencil" || selectedTool === "eraser") {
+      if (state.selectedTool === "pencil" || state.selectedTool === "eraser") {
         currentPath = [{ x: StartX, y: StartY }];
       }
       
-      if (selectedTool === "text") {
+      if (state.selectedTool === "text") {
         // Create text input at click position
-        ClearCanvas(existingShape, ctx, canvas);
+        ClearCanvas(state.existingShape, ctx, canvas,state);
         if (textInput) document.body.removeChild(textInput);
       
         textInput = document.createElement("textarea");
@@ -611,8 +563,11 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
         const canvasRect = canvas.getBoundingClientRect();
         const scrollX = window.scrollX || 0;
         const scrollY = window.scrollY || 0;
-        const textX = canvasRect.left + StartX + scrollX;
-        const textY = canvasRect.top + StartY + scrollY;
+        const textCanvasX = StartX * state.scale + state.offsetX;
+        const textCanvasY = StartY * state.scale + state.offsetY;
+        
+        const textX = canvasRect.left + textCanvasX + scrollX;
+        const textY = canvasRect.top + textCanvasY + scrollY;
         textInput.style.left = `${textX}px`;  // Changed to pageX
         textInput.style.top = `${textY}px`;   // Changed to pageY
         textInput.style.zIndex = "1000";
@@ -646,9 +601,9 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
               strokeWidth: currentStrokeWidth,
               strokeStyle: "solid",
             };
-            existingShape.push(shape);
-            saveShapesToStorage(existingShape, roomId);
-            ClearCanvas(existingShape, ctx, canvas);
+            state.existingShape.push(shape);
+            saveShapesToStorage(state.existingShape, roomId);
+            ClearCanvas(state.existingShape, ctx, canvas,state);
           }
           
           if (textInput) document.body.removeChild(textInput);
@@ -659,15 +614,15 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
   });
 
   canvas.addEventListener("pointerup", (e) => {
-    if (isDragging || isResizing || isRotating) {
-      saveShapesToStorage(existingShape, roomId);
-      isDragging = false;
-      isResizing = false;
-      isRotating = false;
+    if (state.isDragging || state.isResizing || state.isRotating) {
+      saveShapesToStorage(state.existingShape, roomId);
+      state.isDragging = false;
+      state.isResizing = false;
+      state.isRotating = false;
       
-      if (selectedShape) {
-        ClearCanvas(existingShape, ctx, canvas);
-        drawSelectionHandles(selectedShape);
+      if (state.selectedShape) {
+        ClearCanvas(state.existingShape, ctx, canvas,state);
+        drawSelectionHandles(state.selectedShape);
       }
       return;
     }
@@ -683,7 +638,7 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
     let x = Math.min(StartX, EndX);
     let y = Math.min(StartY, EndY);
 
-    if (selectedTool === "circle") {
+    if (state.selectedTool === "circle") {
       const centerX = (StartX + EndX) / 2;
       const centerY = (StartY + EndY) / 2;
       const radius = Math.sqrt(width ** 2 + height ** 2) / 2;
@@ -705,8 +660,8 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
           strokeWidth: currentStrokeWidth,
           strokeStyle: "solid",
       };
-      existingShape.push(shape);
-    } else if (selectedTool === "rect") {
+      state.existingShape.push(shape);
+    } else if (state.selectedTool === "rect") {
       const shape: Tool = {
           type: "rect",
           id: crypto.randomUUID(),
@@ -719,8 +674,8 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
           strokeWidth: currentStrokeWidth,
           strokeStyle: "solid",
       };
-      existingShape.push(shape);
-    } else if (selectedTool === "diamond") {
+      state.existingShape.push(shape);
+    } else if (state.selectedTool === "diamond") {
       const shape: Tool = {
           type: "diamond",
           id: crypto.randomUUID(),
@@ -733,8 +688,8 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
           strokeWidth: currentStrokeWidth,
           strokeStyle: "solid",
       };
-      existingShape.push(shape);
-    } else if (selectedTool === "arrow") {
+      state.existingShape.push(shape);
+    } else if (state.selectedTool === "arrow") {
       const shape: Tool = {
           type: "arrow",
           id: crypto.randomUUID(),
@@ -746,8 +701,8 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
           strokeWidth: currentStrokeWidth,
           strokeStyle: "solid",
       };
-      existingShape.push(shape);
-    } else if (selectedTool === "line") {
+      state.existingShape.push(shape);
+    } else if (state.selectedTool === "line") {
       const shape: Tool = {
           type: "line",
           id: crypto.randomUUID(),
@@ -759,8 +714,8 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
           strokeWidth: currentStrokeWidth,
           strokeStyle: "solid",
       };
-      existingShape.push(shape);
-    } else if (selectedTool === "pencil" && currentPath.length > 1) {
+      state.existingShape.push(shape);
+    } else if (state.selectedTool === "pencil" && currentPath.length > 1) {
       const shape: Tool = {
           type: "pencil",
           id: crypto.randomUUID(),
@@ -769,20 +724,20 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
           strokeWidth: currentStrokeWidth,
           strokeStyle: "solid",
       };
-      existingShape.push(shape);
+      state.existingShape.push(shape);
       currentPath = [];
-    } else if (selectedTool === "eraser" && currentPath.length > 1) {
+    } else if (state.selectedTool === "eraser" && currentPath.length > 1) {
       const shape: Tool = {
           type: "eraser",
           id: crypto.randomUUID(),
           path: [...currentPath],
           strokeWidth: 10,
       };
-      existingShape.push(shape);
+      state.existingShape.push(shape);
       currentPath = [];
-    } else if (selectedTool === "select" && !selectedShape) {
+    } else if (state.selectedTool === "select" && !state.selectedShape) {
       // Create a selection rectangle
-      selectedShape = {
+      state.selectedShape = {
           type: "select",
           id: crypto.randomUUID(),
           x,
@@ -790,16 +745,16 @@ export default function initDraw(canvas: HTMLCanvasElement, roomId: string) {
           width,
           height,
       };
-      existingShape.push(selectedShape);
-      selectedShapeIndex = existingShape.length - 1;
+      state.existingShape.push(state.selectedShape);
+      state.selectedShapeIndex = state.existingShape.length - 1;
     }
 
-    saveShapesToStorage(existingShape, roomId);
-    ClearCanvas(existingShape, ctx, canvas);
+    saveShapesToStorage(state.existingShape, roomId);
+    ClearCanvas(state.existingShape, ctx, canvas,state);
     
    // Continue from where the code was cut off
-   if (selectedShape) {
-    drawSelectionHandles(selectedShape);
+   if (state.selectedShape) {
+    drawSelectionHandles(state.selectedShape);
   }
 });
 
@@ -808,152 +763,152 @@ canvas.addEventListener("pointermove", (e) => {
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
   
-  if (selectedTool === "select" && selectedShape) {
+  if (state.selectedTool === "select" && state.selectedShape) {
     // Handle resizing
-    if (isResizing && selectedShape) {
-      if (selectedShape.type === "rect" || selectedShape.type === "diamond") {
-        if (resizeHandle === "br") {
-          selectedShape.width = mouseX - selectedShape.x;
-          selectedShape.height = mouseY - selectedShape.y;
-        } else if (resizeHandle === "tr") {
-          selectedShape.width = mouseX - selectedShape.x;
-          selectedShape.height = selectedShape.y + selectedShape.height - mouseY;
-          selectedShape.y = mouseY;
-        } else if (resizeHandle === "bl") {
-          selectedShape.width = selectedShape.x + selectedShape.width - mouseX;
-          selectedShape.height = mouseY - selectedShape.y;
-          selectedShape.x = mouseX;
-        } else if (resizeHandle === "tl") {
-          selectedShape.width = selectedShape.x + selectedShape.width - mouseX;
-          selectedShape.height = selectedShape.y + selectedShape.height - mouseY;
-          selectedShape.x = mouseX;
-          selectedShape.y = mouseY;
+    if (state.isResizing && state.selectedShape) {
+      if (state.selectedShape.type === "rect" || state.selectedShape.type === "diamond") {
+        if (state.resizeHandle === "br") {
+          state.selectedShape.width = mouseX - state.selectedShape.x;
+          state.selectedShape.height = mouseY - state.selectedShape.y;
+        } else if (state.resizeHandle === "tr") {
+          state.selectedShape.width = mouseX - state.selectedShape.x;
+          state.selectedShape.height = state.selectedShape.y + state.selectedShape.height - mouseY;
+          state.selectedShape.y = mouseY;
+        } else if (state.resizeHandle === "bl") {
+          state.selectedShape.width = state.selectedShape.x + state.selectedShape.width - mouseX;
+          state.selectedShape.height = mouseY - state.selectedShape.y;
+          state.selectedShape.x = mouseX;
+        } else if (state.resizeHandle === "tl") {
+          state.selectedShape.width = state.selectedShape.x + state.selectedShape.width - mouseX;
+          state.selectedShape.height = state.selectedShape.y + state.selectedShape.height - mouseY;
+          state.selectedShape.x = mouseX;
+          state.selectedShape.y = mouseY;
         }
-      } else if (selectedShape.type === "circle") {
-        const dx = mouseX - selectedShape.centerX;
-        const dy = mouseY - selectedShape.centerY;
+      } else if (state.selectedShape.type === "circle") {
+        const dx = mouseX - state.selectedShape.centerX;
+        const dy = mouseY - state.selectedShape.centerY;
         
-        if (resizeHandle === "right") {
-          selectedShape.radius = Math.abs(dx);
-        } else if (resizeHandle === "left") {
-          selectedShape.radius = Math.abs(dx);
-        } else if (resizeHandle === "top") {
-          selectedShape.radius = Math.abs(dy);
-        } else if (resizeHandle === "bottom") {
-          selectedShape.radius = Math.abs(dy);
+        if (state.resizeHandle === "right") {
+          state.selectedShape.radius = Math.abs(dx);
+        } else if (state.resizeHandle === "left") {
+          state.selectedShape.radius = Math.abs(dx);
+        } else if (state.resizeHandle === "top") {
+          state.selectedShape.radius = Math.abs(dy);
+        } else if (state.resizeHandle === "bottom") {
+          state.selectedShape.radius = Math.abs(dy);
         }
         
         // Update derived properties
-        selectedShape.width = selectedShape.radius * 2;
-        selectedShape.height = selectedShape.radius * 2;
-        selectedShape.x = selectedShape.centerX - selectedShape.radius;
-        selectedShape.y = selectedShape.centerY - selectedShape.radius;
-      } else if (selectedShape.type === "line" || selectedShape.type === "arrow") {
-        if (resizeHandle === "start") {
-          selectedShape.startX = mouseX;
-          selectedShape.startY = mouseY;
-        } else if (resizeHandle === "end") {
-          selectedShape.endX = mouseX;
-          selectedShape.endY = mouseY;
+        state.selectedShape.width = state.selectedShape.radius * 2;
+        state.selectedShape.height = state.selectedShape.radius * 2;
+        state.selectedShape.x = state.selectedShape.centerX - state.selectedShape.radius;
+        state.selectedShape.y = state.selectedShape.centerY - state.selectedShape.radius;
+      } else if (state.selectedShape.type === "line" || state.selectedShape.type === "arrow") {
+        if (state.resizeHandle === "start") {
+          state.selectedShape.startX = mouseX;
+          state.selectedShape.startY = mouseY;
+        } else if (state.resizeHandle === "end") {
+          state.selectedShape.endX = mouseX;
+          state.selectedShape.endY = mouseY;
         }
-      } else if (selectedShape.type === "text" && resizeHandle === "resize") {
-        const newSize = mouseX - selectedShape.x;
+      } else if (state.selectedShape.type === "text" && state.resizeHandle === "resize") {
+        const newSize = mouseX - state.selectedShape.x;
         if (newSize > 10) { // Minimum text size
           // Scale the font size based on text width change
-          const oldMetrics = ctx?.measureText(selectedShape.text);
+          const oldMetrics = ctx?.measureText(state.selectedShape.text);
           const oldWidth = oldMetrics?.width || 0;
           const scaleFactor = newSize / oldWidth;
-          selectedShape.size = Math.max(10, Math.min(72, selectedShape.size * scaleFactor)); // Clamp between 10 and 72px
+          state.selectedShape.size = Math.max(10, Math.min(72, state.selectedShape.size * scaleFactor)); // Clamp between 10 and 72px
         }
       }
       
-      existingShape[selectedShapeIndex] = selectedShape;
-      ClearCanvas(existingShape, ctx, canvas);
-      drawSelectionHandles(selectedShape);
+      state.existingShape[state.selectedShapeIndex] = state.selectedShape;
+      ClearCanvas(state.existingShape, ctx, canvas,state);
+      drawSelectionHandles(state.selectedShape);
     }
     // Handle rotation
-    else if (isRotating && selectedShape) {
+    else if (state.isRotating && state.selectedShape) {
       let newAngle = 0;
       
-      if (selectedShape.type === "rect" || selectedShape.type === "diamond") {
-        const centerX = selectedShape.x + selectedShape.width / 2;
-        const centerY = selectedShape.y + selectedShape.height / 2;
+      if (state.selectedShape.type === "rect" || state.selectedShape.type === "diamond") {
+        const centerX = state.selectedShape.x + state.selectedShape.width / 2;
+        const centerY = state.selectedShape.y + state.selectedShape.height / 2;
         newAngle = Math.atan2(mouseY - centerY, mouseX - centerX);
         
-        const deltaAngle = newAngle - rotationAngle;
-        rotationAngle = newAngle;
+        const deltaAngle = newAngle - state.rotationAngle;
+        state.rotationAngle = newAngle;
         
-        selectedShape.rotation = (selectedShape.rotation || 0) + deltaAngle;
-      } else if (selectedShape.type === "circle") {
-        const centerX = selectedShape.centerX;
-        const centerY = selectedShape.centerY;
+        state.selectedShape.rotation = (state.selectedShape.rotation || 0) + deltaAngle;
+      } else if (state.selectedShape.type === "circle") {
+        const centerX = state.selectedShape.centerX;
+        const centerY = state.selectedShape.centerY;
         newAngle = Math.atan2(mouseY - centerY, mouseX - centerX);
         
-        const deltaAngle = newAngle - rotationAngle;
-        rotationAngle = newAngle;
+        const deltaAngle = newAngle - state.rotationAngle;
+        state.rotationAngle = newAngle;
         
-        selectedShape.rotation = (selectedShape.rotation || 0) + deltaAngle;
-      } else if (selectedShape.type === "line" || selectedShape.type === "arrow") {
-        const midX = (selectedShape.startX + selectedShape.endX) / 2;
-        const midY = (selectedShape.startY + selectedShape.endY) / 2;
+        state.selectedShape.rotation = (state.selectedShape.rotation || 0) + deltaAngle;
+      } else if (state.selectedShape.type === "line" || state.selectedShape.type === "arrow") {
+        const midX = (state.selectedShape.startX + state.selectedShape.endX) / 2;
+        const midY = (state.selectedShape.startY + state.selectedShape.endY) / 2;
         newAngle = Math.atan2(mouseY - midY, mouseX - midX);
         
-        const deltaAngle = newAngle - rotationAngle;
-        rotationAngle = newAngle;
+        const deltaAngle = newAngle - state.rotationAngle;
+        state.rotationAngle = newAngle;
         
         // For lines and arrows, we need to rotate the endpoints around the midpoint
         const cos = Math.cos(deltaAngle);
         const sin = Math.sin(deltaAngle);
         
         // Translate to origin, rotate, and translate back
-        const startXr = (selectedShape.startX - midX) * cos - (selectedShape.startY - midY) * sin + midX;
-        const startYr = (selectedShape.startX - midX) * sin + (selectedShape.startY - midY) * cos + midY;
-        const endXr = (selectedShape.endX - midX) * cos - (selectedShape.endY - midY) * sin + midX;
-        const endYr = (selectedShape.endX - midX) * sin + (selectedShape.endY - midY) * cos + midY;
+        const startXr = (state.selectedShape.startX - midX) * cos - (state.selectedShape.startY - midY) * sin + midX;
+        const startYr = (state.selectedShape.startX - midX) * sin + (state.selectedShape.startY - midY) * cos + midY;
+        const endXr = (state.selectedShape.endX - midX) * cos - (state.selectedShape.endY - midY) * sin + midX;
+        const endYr = (state.selectedShape.endX - midX) * sin + (state.selectedShape.endY - midY) * cos + midY;
         
-        selectedShape.startX = startXr;
-        selectedShape.startY = startYr;
-        selectedShape.endX = endXr;
-        selectedShape.endY = endYr;
+     state.selectedShape.startX = startXr;
+        state.selectedShape.startY = startYr;
+        state.selectedShape.endX = endXr;
+        state.selectedShape.endY = endYr;
       }
       
-      existingShape[selectedShapeIndex] = selectedShape;
-      ClearCanvas(existingShape, ctx, canvas);
-      drawSelectionHandles(selectedShape);
+      state.existingShape[state.selectedShapeIndex] = state.selectedShape;
+      ClearCanvas(state.existingShape, ctx, canvas,state);
+      drawSelectionHandles(state.selectedShape);
     }
     // Handle dragging
-    else if (isDragging && selectedShape) {
+    else if (state.isDragging && state.selectedShape) {
       const deltaX = mouseX - StartX;
       const deltaY = mouseY - StartY;
       
-      if (selectedShape.type === "rect" || selectedShape.type === "diamond" || selectedShape.type === "select") {
-        selectedShape.x += deltaX;
-        selectedShape.y += deltaY;
-      } else if (selectedShape.type === "circle") {
-        selectedShape.centerX += deltaX;
-        selectedShape.centerY += deltaY;
-        selectedShape.x += deltaX;
-        selectedShape.y += deltaY;
-      } else if (selectedShape.type === "line" || selectedShape.type === "arrow") {
-        selectedShape.startX += deltaX;
-        selectedShape.startY += deltaY;
-        selectedShape.endX += deltaX;
-        selectedShape.endY += deltaY;
-      } else if (selectedShape.type === "text") {
-        selectedShape.x += deltaX;
-        selectedShape.y += deltaY;
+      if (state.selectedShape.type === "rect" || state.selectedShape.type === "diamond" || state.selectedShape.type === "select") {
+        state.selectedShape.x += deltaX;
+        state.selectedShape.y += deltaY;
+      } else if (state.selectedShape.type === "circle") {
+        state.selectedShape.centerX += deltaX;
+        state.selectedShape.centerY += deltaY;
+        state.selectedShape.x += deltaX;
+        state.selectedShape.y += deltaY;
+      } else if (state.selectedShape.type === "line" || state.selectedShape.type === "arrow") {
+        state.selectedShape.startX += deltaX;
+        state.selectedShape.startY += deltaY;
+        state.selectedShape.endX += deltaX;
+        state.selectedShape.endY += deltaY;
+      } else if (state.selectedShape.type === "text") {
+        state.selectedShape.x += deltaX;
+        state.selectedShape.y += deltaY;
       }
       
       StartX = mouseX;
       StartY = mouseY;
       
-      existingShape[selectedShapeIndex] = selectedShape;
-      ClearCanvas(existingShape, ctx, canvas);
-      drawSelectionHandles(selectedShape);
+      state.existingShape[state.selectedShapeIndex] = state.selectedShape;
+      ClearCanvas(state.existingShape, ctx, canvas,state);
+      drawSelectionHandles(state.selectedShape);
     }
     // Update cursor based on handle
-    else if (selectedShape) {
-      const handle = getResizeHandle(mouseX, mouseY, selectedShape);
+    else if (state.selectedShape) {
+      const handle = getResizeHandle(mouseX, mouseY, state.selectedShape);
       
       if (handle === "rotate") {
         canvas.style.cursor = "grab";
@@ -965,7 +920,7 @@ canvas.addEventListener("pointermove", (e) => {
         canvas.style.cursor = "move";
       } else if (handle === "resize") {
         canvas.style.cursor = "ew-resize";
-      } else if (isPointInShape(mouseX, mouseY, selectedShape)) {
+      } else if (isPointInShape(mouseX, mouseY, state.selectedShape)) {
         canvas.style.cursor = "move";
       } else {
         canvas.style.cursor = "default";
@@ -974,9 +929,9 @@ canvas.addEventListener("pointermove", (e) => {
   }
   
   if (Clicked) {
-    ClearCanvas(existingShape, ctx, canvas);
+    ClearCanvas(state.existingShape, ctx, canvas,state);
     
-    if (selectedTool === "pencil" || selectedTool === "eraser") {
+    if (state.selectedTool === "pencil" || state.selectedTool === "eraser") {
       // Draw the current path
       if (!ctx) return;
       
@@ -989,18 +944,18 @@ canvas.addEventListener("pointermove", (e) => {
       
       ctx.lineTo(mouseX, mouseY);
       
-      if (selectedTool === "pencil") {
+      if (state.selectedTool === "pencil") {
         ctx.strokeStyle = currentStrokeColor;
         ctx.lineWidth = currentStrokeWidth;
         ctx.stroke();
-      } else if (selectedTool === "eraser") {
+      } else if (state.selectedTool === "eraser") {
         ctx.strokeStyle = "rgba(0, 0, 0)";
         ctx.lineWidth = 10;
         ctx.stroke();
       }
       
       currentPath.push({ x: mouseX, y: mouseY });
-    } else if (selectedTool === "rect") {
+    } else if (state.selectedTool === "rect") {
       if (!ctx) return;
       
       let width = mouseX - StartX;
@@ -1015,7 +970,7 @@ canvas.addEventListener("pointermove", (e) => {
       }
       
       ctx.strokeRect(StartX, StartY, width, height);
-    } else if (selectedTool === "circle") {
+    } else if (state.selectedTool === "circle") {
       if (!ctx) return;
       
       const centerX = (StartX + mouseX) / 2;
@@ -1034,7 +989,7 @@ canvas.addEventListener("pointermove", (e) => {
       }
       
       ctx.stroke();
-    } else if (selectedTool === "diamond") {
+    } else if (state.selectedTool === "diamond") {
       if (!ctx) return;
       
       const centerX = (StartX + mouseX) / 2;
@@ -1058,7 +1013,7 @@ canvas.addEventListener("pointermove", (e) => {
       }
       
       ctx.stroke();
-    } else if (selectedTool === "line") {
+    } else if (state.selectedTool === "line") {
       if (!ctx) return;
       
       ctx.beginPath();
@@ -1068,7 +1023,7 @@ canvas.addEventListener("pointermove", (e) => {
       ctx.strokeStyle = currentStrokeColor;
       ctx.lineWidth = currentStrokeWidth;
       ctx.stroke();
-    } else if (selectedTool === "arrow") {
+    } else if (state.selectedTool === "arrow") {
       if (!ctx) return;
       
       // Draw the line
@@ -1100,7 +1055,7 @@ canvas.addEventListener("pointermove", (e) => {
       
       ctx.fillStyle = currentStrokeColor;
       ctx.fill();
-    } else if (selectedTool === "select") {
+    } else if (state.selectedTool === "select") {
       if (!ctx) return;
       
       // Draw selection rectangle
@@ -1113,550 +1068,11 @@ canvas.addEventListener("pointermove", (e) => {
   }
 });
 
-// Function to draw all shapes on the canvas
-function ClearCanvas(shapes: Tool[], ctx: CanvasRenderingContext2D|null, canvas: HTMLCanvasElement) {
-  if (!ctx) return;
-  
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "rgba(0, 0, 0)"
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  
-  for (const shape of shapes) {
-    if (shape.type === "rect") {
-      // Apply rotation if exists
-      ctx.save();
-      if (shape.rotation) {
-        const centerX = shape.x + shape.width / 2;
-        const centerY = shape.y + shape.height / 2;
-        ctx.translate(centerX, centerY);
-        ctx.rotate(shape.rotation);
-        ctx.translate(-centerX, -centerY);
-      }
-      
-      ctx.strokeStyle = shape.color;
-      ctx.fillStyle = shape.bgColor;
-      ctx.lineWidth = shape.strokeWidth;
-      
-      if (shape.bgColor !== "transparent") {
-        ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
-      }
-      
-      ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
-      ctx.restore();
-    } else if (shape.type === "circle") {
-      ctx.beginPath();
-      ctx.arc(shape.centerX, shape.centerY, shape.radius, 0, 2 * Math.PI);
-      
-      ctx.strokeStyle = shape.color;
-      ctx.fillStyle = shape.bgColor;
-      ctx.lineWidth = shape.strokeWidth;
-      
-      if (shape.bgColor !== "transparent") {
-        ctx.fill();
-      }
-      
-      ctx.stroke();
-    } else if (shape.type === "diamond") {
-      ctx.save();
-      
-      const centerX = shape.x + shape.width / 2;
-      const centerY = shape.y + shape.height / 2;
-      
-      if (shape.rotation) {
-        ctx.translate(centerX, centerY);
-        ctx.rotate(shape.rotation);
-        ctx.translate(-centerX, -centerY);
-      }
-      
-      ctx.beginPath();
-      ctx.moveTo(centerX, shape.y); // Top
-      ctx.lineTo(shape.x + shape.width, centerY); // Right
-      ctx.lineTo(centerX, shape.y + shape.height); // Bottom
-      ctx.lineTo(shape.x, centerY); // Left
-      ctx.closePath();
-      
-      ctx.strokeStyle = shape.color;
-      ctx.fillStyle = shape.bgColor;
-      ctx.lineWidth = shape.strokeWidth;
-      
-      if (shape.bgColor !== "transparent") {
-        ctx.fill();
-      }
-      
-      ctx.stroke();
-      ctx.restore();
-    } else if (shape.type === "line") {
-      ctx.beginPath();
-      ctx.moveTo(shape.startX, shape.startY);
-      ctx.lineTo(shape.endX, shape.endY);
-      
-      ctx.strokeStyle = shape.color;
-      ctx.lineWidth = shape.strokeWidth;
-      ctx.stroke();
-    } else if (shape.type === "arrow") {
-      // Draw the line
-      ctx.beginPath();
-      ctx.moveTo(shape.startX, shape.startY);
-      ctx.lineTo(shape.endX, shape.endY);
-      
-      ctx.strokeStyle = shape.color;
-      ctx.lineWidth = shape.strokeWidth;
-      ctx.stroke();
-      
-      // Draw the arrowhead
-      const headLength = 15;
-      const dx = shape.endX - shape.startX;
-      const dy = shape.endY - shape.startY;
-      const angle = Math.atan2(dy, dx);
-      
-      ctx.beginPath();
-      ctx.moveTo(shape.endX, shape.endY);
-      ctx.lineTo(
-        shape.endX - headLength * Math.cos(angle - Math.PI / 6),
-        shape.endY - headLength * Math.sin(angle - Math.PI / 6)
-      );
-      ctx.lineTo(
-        shape.endX - headLength * Math.cos(angle + Math.PI / 6),
-        shape.endY - headLength * Math.sin(angle + Math.PI / 6)
-      );
-      ctx.closePath();
-      
-      ctx.fillStyle = shape.color;
-      ctx.fill();
-    } else if (shape.type === "pencil") {
-      if (shape.path.length < 2) continue;
-      
-      ctx.beginPath();
-      ctx.moveTo(shape.path[0].x, shape.path[0].y);
-      
-      for (let i = 1; i < shape.path.length; i++) {
-        ctx.lineTo(shape.path[i].x, shape.path[i].y);
-      }
-      
-      ctx.strokeStyle = shape.color;
-      ctx.lineWidth = shape.strokeWidth;
-      ctx.stroke();
-    } else if (shape.type === "eraser") {
-      if (shape.path.length < 2) continue;
-      
-      ctx.beginPath();
-      ctx.moveTo(shape.path[0].x, shape.path[0].y);
-      
-      for (let i = 1; i < shape.path.length; i++) {
-        ctx.lineTo(shape.path[i].x, shape.path[i].y);
-      }
-      
-      ctx.strokeStyle = "rgba(0, 0, 0)";
-      ctx.lineWidth = shape.strokeWidth;
-      ctx.stroke();
-    } else if (shape.type === "text") {
-      ctx.save();
-      
-      if (shape.rotation) {
-        ctx.translate(shape.x, shape.y);
-        ctx.rotate(shape.rotation);
-        ctx.translate(-shape.x, -shape.y);
-      }
-      
-      ctx.font = `${shape.size}px Arial`;
-      ctx.fillStyle = shape.color;
-      
-      
-      if (shape.bgColor !== "transparent") {
-        const metrics = ctx.measureText(shape.text);
-        const textWidth = metrics.width;
-        const textHeight = shape.size;
-        
-        ctx.fillStyle = shape.bgColor;
-        ctx.fillRect(shape.x, shape.y - textHeight, textWidth, textHeight);
-        ctx.fillStyle = shape.color;
-      }
-      
-      ctx.fillText(shape.text, shape.x, shape.y);
-      ctx.restore();
-    } else if (shape.type === "select" && shape !== selectedShape) {
-      // Don't display selection rectangle unless it's being drawn
-      continue;
-    }
-  }
-}
 
-// Function to save shapes to localStorage
-function saveShapesToStorage(shapes: Tool[], roomId: string) {
-  localStorage.setItem(`drawing_${roomId}`, JSON.stringify(shapes));
-}
 
-// Function to load shapes from localStorage
-function loadShapesFromStorage(roomId: string): Tool[] {
-  const shapesJSON = localStorage.getItem(`drawing_${roomId}`);
-  return shapesJSON ? JSON.parse(shapesJSON) : [];
-}
+createStyleToolbar(ctx,canvas,state,roomId,setBgColor,setStrokeColor,setStrokeWidth);
 
-// Create the toolbar element
-function createToolbar() {
-  const toolbar = document.createElement("div");
-  toolbar.style.position = "fixed";
-  toolbar.style.bottom = "20px";
-  toolbar.style.left = "50%";
-  toolbar.style.transform = "translateX(-50%)";
-  toolbar.style.backgroundColor = "#333";
-  toolbar.style.borderRadius = "8px";
-  toolbar.style.padding = "10px";
-  toolbar.style.display = "flex";
-  toolbar.style.gap = "10px";
-  toolbar.style.zIndex = "1000";
-  
-  // Create tool buttons
-  const tools: ToolType[] = ["rect", "circle", "diamond", "line", "arrow", "pencil", "text", "eraser", "select"];
-  
-  tools.forEach(tool => {
-    const button = document.createElement("button");
-    button.textContent = tool.charAt(0).toUpperCase() + tool.slice(1);
-    button.style.backgroundColor = tool === selectedTool ? "#666" : "#444";
-    button.style.color = "white";
-    button.style.border = "none";
-    button.style.borderRadius = "4px";
-    button.style.padding = "8px 12px";
-    button.style.cursor = "pointer";
-    
-    button.addEventListener("click", () => {
-      // Update selected tool
-      selectTool(tool);
-      
-      // Update button styles
-      document.querySelectorAll("#toolbar button").forEach(btn => {
-        (btn as HTMLElement).style.backgroundColor = "#444";
-      });
-      button.style.backgroundColor = "#666";
-    });
-    
-    toolbar.appendChild(button);
-  });
-  
-  toolbar.id = "toolbar";
-  document.body.appendChild(toolbar);
-}
 
-// Create the style toolbar
-function createStyleToolbar() {
-    const styleToolbar = document.createElement("div");
-    styleToolbar.style.position = "fixed";
-    styleToolbar.style.top = "20px";
-    styleToolbar.style.right = "20px";
-    styleToolbar.style.backgroundColor = "#1e1e1e";
-    styleToolbar.style.borderRadius = "12px";
-    styleToolbar.style.padding = "16px";
-    styleToolbar.style.display = "flex";
-    styleToolbar.style.flexDirection = "column";
-    styleToolbar.style.gap = "16px";
-    styleToolbar.style.zIndex = "1000";
-    styleToolbar.style.width = "240px";
-    styleToolbar.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.2)";
-    
-    // Section Label Style
-    const createSectionLabel = (text: string): HTMLDivElement => {
-      const label = document.createElement("div");
-      label.textContent = text;
-      label.style.color = "white";
-      label.style.fontSize = "16px";
-      label.style.fontWeight = "500";
-      label.style.marginBottom = "8px";
-      return label;
-    };
-    
-    // Create Color Button Style
-    const createColorButton = (color: string, selected = false): HTMLDivElement => {
-      const button = document.createElement("div");
-      button.style.width = "36px";
-      button.style.height = "36px";
-      button.style.backgroundColor = color;
-      button.style.borderRadius = "8px";
-      button.style.cursor = "pointer";
-      button.style.transition = "transform 0.2s, box-shadow 0.2s";
-      
-      if (selected) {
-        button.style.border = "2px solid #8080ff";
-        button.style.boxShadow = "0 0 0 2px rgba(128, 128, 255, 0.3)";
-      } else {
-        button.style.border = "2px solid transparent";
-      }
-      
-      button.addEventListener("mouseover", () => {
-        button.style.transform = "scale(1.05)";
-      });
-      
-      button.addEventListener("mouseout", () => {
-        button.style.transform = "scale(1)";
-      });
-      
-      return button;
-    };
-    
-    // Stroke color section
-    styleToolbar.appendChild(createSectionLabel("Stroke"));
-    
-    const strokeColorContainer = document.createElement("div");
-    strokeColorContainer.style.display = "flex";
-    strokeColorContainer.style.gap = "8px";
-    strokeColorContainer.style.flexWrap = "wrap";
-    
-    const strokeColors = ["#e0e0e0", "#ff8080", "#4caf50", "#4d88ff", "#b36b00", "#ff7f7f"];
-    let selectedStrokeButton: HTMLDivElement | null = null;
-    
-    strokeColors.forEach((color, index) => {
-      const isSelected = color === currentStrokeColor || 
-                         (index === 0 && currentStrokeColor === "white");
-      const colorButton = createColorButton(color, isSelected);
-      
-      if (isSelected) {
-        selectedStrokeButton = colorButton;
-      }
-      
-      colorButton.addEventListener("click", () => {
-        setStrokeColor(color);
-        
-        if (selectedStrokeButton) {
-          selectedStrokeButton.style.border = "2px solid transparent";
-          selectedStrokeButton.style.boxShadow = "none";
-        }
-        
-        colorButton.style.border = "2px solid #8080ff";
-        colorButton.style.boxShadow = "0 0 0 2px rgba(128, 128, 255, 0.3)";
-        selectedStrokeButton = colorButton;
-      });
-      
-      strokeColorContainer.appendChild(colorButton);
-    });
-    
-    styleToolbar.appendChild(strokeColorContainer);
-    
-    // Background color section
-    styleToolbar.appendChild(createSectionLabel("Background"));
-    
-    const bgColorContainer = document.createElement("div");
-    bgColorContainer.style.display = "flex";
-    bgColorContainer.style.gap = "8px";
-    bgColorContainer.style.flexWrap = "wrap";
-    
-    const bgColors = [
-        "transparent", 
-        "#ffb3b3", 
-        "#b3ffb3",   
-        "#b3d9ff",  
-        "#ffe6b3",    
-        "#e6b3ff",    
-        "#b3fff0"   
-      ];
-    let selectedBgButton: HTMLDivElement | null = null;
-    
-    bgColors.forEach((color, index) => {
-      const isSelected = color === currentBgColor;
-      const colorButton = createColorButton(color === "transparent" ? "#ffffff" : color, isSelected);
-      
-      if (color === "transparent") {
-        // Create crosshatch pattern for transparent
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.setAttribute("width", "100%");
-        svg.setAttribute("height", "100%");
-        svg.style.position = "absolute";
-        svg.style.top = "0";
-        svg.style.left = "0";
-        svg.style.borderRadius = "6px";
-        
-        const pattern = document.createElementNS("http://www.w3.org/2000/svg", "pattern");
-        pattern.setAttribute("id", "crosshatch");
-        pattern.setAttribute("width", "8");
-        pattern.setAttribute("height", "8");
-        pattern.setAttribute("patternUnits", "userSpaceOnUse");
-        
-        const path1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path1.setAttribute("d", "M0,0 L8,8");
-        path1.setAttribute("stroke", "#999");
-        path1.setAttribute("stroke-width", "1");
-        
-        const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path2.setAttribute("d", "M8,0 L0,8");
-        path2.setAttribute("stroke", "#999");
-        path2.setAttribute("stroke-width", "1");
-        
-        pattern.appendChild(path1);
-        pattern.appendChild(path2);
-        
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("width", "100%");
-        rect.setAttribute("height", "100%");
-        rect.setAttribute("fill", "url(#crosshatch)");
-        
-        svg.appendChild(pattern);
-        svg.appendChild(rect);
-        colorButton.appendChild(svg);
-        colorButton.style.position = "relative";
-      }
-      
-      if (isSelected) {
-        selectedBgButton = colorButton;
-      }
-      
-      colorButton.addEventListener("click", () => {
-        setBgColor(color);
-        
-        if (selectedBgButton) {
-          selectedBgButton.style.border = "2px solid transparent";
-          selectedBgButton.style.boxShadow = "none";
-        }
-        
-        colorButton.style.border = "2px solid #8080ff";
-        colorButton.style.boxShadow = "0 0 0 2px rgba(128, 128, 255, 0.3)";
-        selectedBgButton = colorButton;
-      });
-      
-      bgColorContainer.appendChild(colorButton);
-    });
-    
-    styleToolbar.appendChild(bgColorContainer);
-    
-    // Stroke width section
-    styleToolbar.appendChild(createSectionLabel("Stroke width"));
-    
-    const strokeWidthContainer = document.createElement("div");
-    strokeWidthContainer.style.display = "flex";
-    strokeWidthContainer.style.alignItems = "center";
-    strokeWidthContainer.style.gap = "10px";
-    
-    const strokeWidthSlider = document.createElement("input");
-    strokeWidthSlider.type = "range";
-    strokeWidthSlider.min = "1";
-    strokeWidthSlider.max = "20";
-    strokeWidthSlider.value = currentStrokeWidth.toString();
-    strokeWidthSlider.style.flexGrow = "1";
-    strokeWidthSlider.style.appearance = "none";
-    strokeWidthSlider.style.height = "6px";
-    strokeWidthSlider.style.borderRadius = "3px";
-    strokeWidthSlider.style.background = "linear-gradient(to right, #464684 0%, #8080ff 100%)";
-    
-    // Style for slider thumb
-    strokeWidthSlider.style.webkitAppearance = "none";
-    const thumbStyle = `
-      -webkit-appearance: none;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: #e0e0e0;
-      cursor: pointer;
-      border: none;
-    `;
-    
-    strokeWidthSlider.innerHTML = `
-      <style>
-        input[type=range]::-webkit-slider-thumb {${thumbStyle}}
-        input[type=range]::-moz-range-thumb {${thumbStyle}}
-        input[type=range]::-ms-thumb {${thumbStyle}}
-      </style>
-    `;
-    
-    const strokeWidthValue = document.createElement("span");
-    strokeWidthValue.textContent = currentStrokeWidth.toString();
-    strokeWidthValue.style.color = "white";
-    strokeWidthValue.style.minWidth = "30px";
-    strokeWidthValue.style.textAlign = "center";
-    strokeWidthValue.style.backgroundColor = "#2a2a3c";
-    strokeWidthValue.style.padding = "4px 8px";
-    strokeWidthValue.style.borderRadius = "4px";
-    strokeWidthValue.style.fontSize = "14px";
-    
-    strokeWidthSlider.addEventListener("input", (e) => {
-      const target = e.target as HTMLInputElement;
-      const width = parseInt(target.value);
-      setStrokeWidth(width);
-      strokeWidthValue.textContent = width.toString();
-    });
-    
-    strokeWidthContainer.appendChild(strokeWidthSlider);
-    strokeWidthContainer.appendChild(strokeWidthValue);
-    styleToolbar.appendChild(strokeWidthContainer);
-    
-    // Actions section
-    styleToolbar.appendChild(createSectionLabel("Actions"));
-    
-    const actionsContainer = document.createElement("div");
-    actionsContainer.style.display = "flex";
-    actionsContainer.style.gap = "10px";
-    actionsContainer.style.flexDirection = "column";
-    
-    // Delete selected button
-    const deleteButton = document.createElement("button");
-    deleteButton.textContent = "Delete Selected";
-    deleteButton.style.backgroundColor = "#8b64f5";
-    deleteButton.style.color = "white";
-    deleteButton.style.border = "none";
-    deleteButton.style.borderRadius = "6px";
-    deleteButton.style.padding = "10px";
-    deleteButton.style.cursor = "pointer";
-    deleteButton.style.fontWeight = "500";
-    deleteButton.style.transition = "background-color 0.2s";
-    
-    deleteButton.addEventListener("mouseover", () => {
-      deleteButton.style.backgroundColor = "#e53935";
-    });
-    
-    deleteButton.addEventListener("mouseout", () => {
-      deleteButton.style.backgroundColor = "#f44336";
-    });
-    
-    deleteButton.addEventListener("click", () => {
-      if (selectedShape && selectedShapeIndex >= 0) {
-        existingShape.splice(selectedShapeIndex, 1);
-        selectedShape = null;
-        selectedShapeIndex = -1;
-        saveShapesToStorage(existingShape, roomId);
-        ClearCanvas(existingShape, ctx, canvas);
-      }
-    });
-    
-    // Clear all button
-    const clearButton = document.createElement("button");
-    clearButton.textContent = "Clear All";
-    clearButton.style.backgroundColor = "#8b64f5";
-    clearButton.style.color = "white";
-    clearButton.style.border = "none";
-    clearButton.style.borderRadius = "6px";
-    clearButton.style.padding = "10px";
-    clearButton.style.cursor = "pointer";
-    clearButton.style.fontWeight = "500";
-    clearButton.style.transition = "background-color 0.2s";
-    
-    clearButton.addEventListener("mouseover", () => {
-      clearButton.style.backgroundColor = "#6d4c41";
-    });
-    
-    clearButton.addEventListener("mouseout", () => {
-      clearButton.style.backgroundColor = "#795548";
-    });
-    
-    clearButton.addEventListener("click", () => {
-      if (confirm("Are you sure you want to clear all shapes?")) {
-        existingShape = [];
-        selectedShape = null;
-        selectedShapeIndex = -1;
-        saveShapesToStorage(existingShape, roomId);
-        ClearCanvas(existingShape, ctx, canvas);
-      }
-    });
-    
-    actionsContainer.appendChild(deleteButton);
-    actionsContainer.appendChild(clearButton);
-    styleToolbar.appendChild(actionsContainer);
-    
-    styleToolbar.id = "styleToolbar";
-    document.body.appendChild(styleToolbar);
-    
-    return styleToolbar;
-  }
-// Create the toolbars
-
-createStyleToolbar();
-
-// Return functions for external access
 return {
   selectTool,
   setStrokeColor,
